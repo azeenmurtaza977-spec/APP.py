@@ -1,36 +1,48 @@
 import streamlit as st
+import time
+from datetime import datetime
 
-# Page config
-st.set_page_config(page_title="📊 Population Insights Demo", layout="wide")
+# Config
+st.set_page_config(page_title="🌍 Live Population Tracker", layout="wide")
 
-# Title
-st.title("🌍 Population Insights (Sample App)")
+st.title("🌍 Global Population Insights")
+st.write("📊 A live demo tracker for births, deaths, and net population growth.")
 
-# Sidebar
-st.sidebar.header("⚙️ Options")
-option = st.sidebar.selectbox("Select a view:", ["Overview", "Trends", "About"])
+# Constants (approx from UN / Worldometer)
+POPULATION_2025 = 8_100_000_000
+BIRTHS_PER_YEAR = 140_000_000
+DEATHS_PER_YEAR = 60_000_000
+SECONDS_PER_YEAR = 365 * 24 * 60 * 60
 
-# Main Area
-if option == "Overview":
-    st.subheader("📈 Population Overview")
-    st.metric("World Population", "8 Billion")
-    st.metric("Births per Year", "140 Million")
-    st.metric("Deaths per Year", "60 Million")
+# Per second rates
+births_per_sec = BIRTHS_PER_YEAR / SECONDS_PER_YEAR
+deaths_per_sec = DEATHS_PER_YEAR / SECONDS_PER_YEAR
+growth_per_sec = births_per_sec - deaths_per_sec
 
-elif option == "Trends":
-    st.subheader("📊 Trends (Sample Data)")
-    st.line_chart({"Population (B)": [1, 2, 3, 4, 5, 6, 7, 8]})
+# Reference start time
+if "start_time" not in st.session_state:
+    st.session_state.start_time = time.time()
 
-elif option == "About":
-    st.subheader("ℹ️ About This App")
-    st.write("""
-        This is a **demo app template** created with Streamlit.  
-        - Sidebar to switch views  
-        - Metrics and charts for insights  
-        - Fully customizable for your own data  
-    """)
+# Elapsed time since app started
+elapsed = time.time() - st.session_state.start_time
 
+# Calculations
+current_population = int(POPULATION_2025 + (elapsed * growth_per_sec))
+births_so_far = int(elapsed * births_per_sec)
+deaths_so_far = int(elapsed * deaths_per_sec)
 
+# Layout
+col1, col2, col3 = st.columns(3)
+col1.metric("🌍 Current Population", f"{current_population:,}")
+col2.metric("👶 Births since start", f"{births_so_far:,}")
+col3.metric("⚰️ Deaths since start", f"{deaths_so_far:,}")
 
+st.subheader("📅 Yearly / Monthly Estimates")
+st.write(f"👶 Births per year: {BIRTHS_PER_YEAR:,}")
+st.write(f"⚰️ Deaths per year: {DEATHS_PER_YEAR:,}")
+st.write(f"📈 Net growth per year: {BIRTHS_PER_YEAR - DEATHS_PER_YEAR:,}")
+st.write(f"👶 Births per month: {BIRTHS_PER_YEAR // 12:,}")
+st.write(f"⚰️ Deaths per month: {DEATHS_PER_YEAR // 12:,}")
 
-    
+st.info("ℹ️ Data based on UN & Worldometer global estimates (demo version).")
+
