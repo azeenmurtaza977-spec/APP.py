@@ -1,48 +1,72 @@
 import streamlit as st
 import time
 from datetime import datetime
+import pandas as pd
 
-# Config
+# Page setup
 st.set_page_config(page_title="🌍 Live Population Tracker", layout="wide")
 
-st.title("🌍 Global Population Insights")
-st.write("📊 A live demo tracker for births, deaths, and net population growth.")
+st.title("🌍 Live Population Tracker")
+st.write("This app simulates global births, deaths, and population growth in real-time.")
 
-# Constants (approx from UN / Worldometer)
-POPULATION_2025 = 8_100_000_000
-BIRTHS_PER_YEAR = 140_000_000
-DEATHS_PER_YEAR = 60_000_000
-SECONDS_PER_YEAR = 365 * 24 * 60 * 60
+# ---- Constants (based on UN/Worldometer estimates) ----
+births_per_sec = 4.3     # ~4.3 births every second
+deaths_per_sec = 1.8     # ~1.8 deaths every second
+start_population = 8000000000  # Approx current world population
 
-# Per second rates
-births_per_sec = BIRTHS_PER_YEAR / SECONDS_PER_YEAR
-deaths_per_sec = DEATHS_PER_YEAR / SECONDS_PER_YEAR
-growth_per_sec = births_per_sec - deaths_per_sec
-
-# Reference start time
+# Session state initialization
 if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
+if "history" not in st.session_state:
+    st.session_state.history = pd.DataFrame(columns=["Time", "Births", "Deaths", "Population"])
 
-# Elapsed time since app started
+# Calculate elapsed time
 elapsed = time.time() - st.session_state.start_time
 
-# Calculations
-current_population = int(POPULATION_2025 + (elapsed * growth_per_sec))
-births_so_far = int(elapsed * births_per_sec)
-deaths_so_far = int(elapsed * deaths_per_sec)
+# Live calculations
+births = int(elapsed * births_per_sec)
+deaths = int(elapsed * deaths_per_sec)
+population = start_population + births - deaths
 
-# Layout
+# Save history for plotting
+st.session_state.history = pd.concat([
+    st.session_state.history,
+    pd.DataFrame({"Time": [datetime.now().strftime("%H:%M:%S")],
+                  "Births": [births],
+                  "Deaths": [deaths],
+                  "Population": [population]})
+], ignore_index=True).tail(50)  # keep last 50 points
+
+# ---- Display metrics ----
 col1, col2, col3 = st.columns(3)
-col1.metric("🌍 Current Population", f"{current_population:,}")
-col2.metric("👶 Births since start", f"{births_so_far:,}")
-col3.metric("⚰️ Deaths since start", f"{deaths_so_far:,}")
+col1.metric("👶 Births (since open)", f"{births:,}")
+col2.metric("💀 Deaths (since open)", f"{deaths:,}")
+col3.metric("🌍 Current Population", f"{population:,}")
 
-st.subheader("📅 Yearly / Monthly Estimates")
-st.write(f"👶 Births per year: {BIRTHS_PER_YEAR:,}")
-st.write(f"⚰️ Deaths per year: {DEATHS_PER_YEAR:,}")
-st.write(f"📈 Net growth per year: {BIRTHS_PER_YEAR - DEATHS_PER_YEAR:,}")
-st.write(f"👶 Births per month: {BIRTHS_PER_YEAR // 12:,}")
-st.write(f"⚰️ Deaths per month: {DEATHS_PER_YEAR // 12:,}")
+# ---- Charts ----
+st.subheader("📈 Real-time Trends (last few seconds)")
 
-st.info("ℹ️ Data based on UN & Worldometer global estimates (demo version).")
+# Line chart for births & deaths
+st.line_chart(st.session_state.history.set_index("Time")[["Births", "Deaths"]])
 
+# Line chart for population growth
+st.line_chart(st.session_state.history.set_index("Time")[["Population"]])
+
+# ---- Monthly & yearly projections ----
+st.subheader("📊 Monthly & Yearly Projections")
+
+monthly_births = int(births_per_sec * 60 * 60 * 24 * 30)
+monthly_deaths = int(deaths_per_sec * 60 * 60 * 24 * 30)
+yearly_births = int(births_per_sec * 60 * 60 * 24 * 365)
+yearly_deaths = int(deaths_per_sec * 60 * 60 * 24 * 365)
+
+projection_df = pd.DataFrame({
+    "Category": ["Monthly Births", "Monthly Deaths", "Yearly Births", "Yearly Deaths"],
+    "Count": [monthly_births, monthly_deaths, yearly_births, yearly_deaths]
+})
+
+st.bar_chart(projection_df.set_index("Category"))
+
+# Net insights
+st.success(f"📌 Net growth per month: {monthly_births - monthly_deaths:,}")
+st.success(f"📌 Net growth per year: {yearly_births - yearly_deaths:,}")
